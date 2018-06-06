@@ -1,0 +1,7 @@
+[package]
+name = "rodney-rs"
+version = "0.1.0"
+authors = ["Connor Glosser <glosser1@gmail.com>"]
+
+[dependencies]
+discord = "0.8.0"
