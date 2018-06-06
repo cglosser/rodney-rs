@@ -1,6 +1,7 @@
 extern crate discord;
 
 use discord::model::Event;
+use discord::model::ReactionEmoji;
 use discord::Discord;
 use std::env;
 
@@ -32,8 +33,12 @@ fn main() {
                         "",
                         false,
                     );
-                } else if message.content.contains("horse") {
-                    let _ = discord.send_message(message.channel_id, ":horse:", "", false);
+                } else if message.content.contains("🐴") {
+                    let _ = discord.add_reaction(
+                        message.channel_id,
+                        message.id,
+                        ReactionEmoji::Unicode("💎".to_string()),
+                    );
                 } else if message.content == "!quit" {
                     if message.author.name == "rayhem" {
                         let _ = discord.send_message(message.channel_id, "Sayonara.", "", false);
@@ -47,6 +52,8 @@ fn main() {
                             false,
                         );
                     }
+                } else if message.content == "sudo !quit" {
+                    let _ = discord.send_message(message.channel_id, "Nice try", "", false);
                 }
             }
             Ok(_) => {}
