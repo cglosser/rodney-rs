@@ -36,12 +36,13 @@ fn main() {
                     let _ = discord.send_message(message.channel_id, ":horse:", "", false);
                 } else if message.content == "!quit" {
                     if message.author.name == "rayhem" {
+                        let _ = discord.send_message(message.channel_id, "Sayonara.", "", false);
                         println!("Quitting.");
                         break;
                     } else {
                         let _ = discord.send_message(
                             message.channel_id,
-                            "only root can do that",
+                            "Only root can do that.",
                             "",
                             false,
                         );
