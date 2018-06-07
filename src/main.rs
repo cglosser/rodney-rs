@@ -4,6 +4,7 @@ use discord::model::Event;
 use discord::model::ReactionEmoji;
 use discord::Discord;
 use std::env;
+use std::process::Command;
 
 fn main() {
     // Log in to Discord using a bot token from the environment
@@ -16,11 +17,6 @@ fn main() {
     loop {
         match connection.recv_event() {
             Ok(Event::MessageCreate(message)) => {
-                println!(
-                    "{} says: {} in {}",
-                    message.author.name, message.content, message.channel_id
-                );
-
                 // Stop the bot from replying to itself
                 if message.author.name == "Rodney" {
                     continue;
@@ -39,6 +35,16 @@ fn main() {
                         message.id,
                         ReactionEmoji::Unicode("💎".to_string()),
                     );
+                } else if &message.content[..7] == "!toilet" {
+                    let output = Command::new("toilet")
+                        .arg("--irc")
+                        .arg(&message.content[7..])
+                        .output()
+                        .expect("Error in toileting text");
+                    let response = String::from_utf8(output.stdout).unwrap();
+
+                    println!("{}", response);
+                    let _ = discord.send_message(message.channel_id, &format!("```{}```",&response), "", false);
                 } else if message.content == "!quit" {
                     if message.author.name == "rayhem" {
                         let _ = discord.send_message(message.channel_id, "Sayonara.", "", false);
