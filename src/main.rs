@@ -1,16 +1,26 @@
 extern crate discord;
 
-use discord::model::Event;
+use discord::model::{Event, ChannelId};
 use discord::model::ReactionEmoji;
 use discord::Discord;
 use std::env;
 use std::process::Command;
 
-fn process_command<'a, 'b>(cmd: &'a str, msg: &'b str) -> Option<&'b str> {
-    return if msg.starts_with(cmd) {
-        Some(&msg[cmd.len()..])
-    } else {
-        None
+fn split_command(in_string: &str) -> (Option<&str>, Option<&str>) {
+    let mut splitter = in_string.splitn(2, ' ');
+    let first = splitter.next();
+    let second = splitter.next();
+    (first, second)
+}
+
+pub trait Echo {
+    // Simple Trait to remove some boilerplate for sending text
+    fn echo(&self, &ChannelId, &str) -> ();
+}
+
+impl Echo for Discord {
+    fn echo(&self, id: &ChannelId, msg: &str) -> () {
+        let _ = self.send_message(*id, msg, "", false);
     }
 }
 
@@ -33,54 +43,38 @@ fn main() {
                     continue;
                 }
 
-                let mentioned = message.mentions.iter().any(|x| x.id == bot.id);
-                println!("{}", mentioned);
+                let _mentioned = message.mentions.iter().any(|x| x.id == bot.id);
+                let (command, args) = split_command(&message.content);
 
-                if message.content == "!test" {
-                    let _ = discord.send_message(
-                        message.channel_id,
-                        "This is a reply to the test.",
-                        "",
-                        false,
-                    );
-                } else if message.content.contains("🐴") {
-                    let _ = discord.add_reaction(
-                        message.channel_id,
-                        message.id,
-                        ReactionEmoji::Unicode("💎".to_string()),
-                    );
-                } else if message.content.starts_with("!toilet ") {
-                    let (_, msg) = message.content.split_at(8);
-                    let output = Command::new("toilet")
-                        .arg("--irc")
-                        .arg(&msg)
-                        .output()
-                        .expect("Error in toileting text");
-                    let response = String::from_utf8(output.stdout).unwrap();
-
-                    println!("{}", response);
-                    let _ = discord.send_message(
-                        message.channel_id,
-                        &format!("```{}```", &response),
-                        "",
-                        false,
-                    );
-                } else if message.content == "!quit" {
-                    if message.author.name == "rayhem" {
-                        let _ = discord.send_message(message.channel_id, "Sayonara.", "", false);
-                        println!("Quitting.");
-                        break;
-                    } else {
-                        let _ = discord.send_message(
-                            message.channel_id,
-                            "Only root can do that.",
-                            "",
-                            false,
-                        );
+                match command {
+                    Some("!test") => discord.echo(&message.channel_id, "This is a reply to the test."),
+                    Some("!toilet") => {
+                        let output = Command::new("toilet")
+                            .arg(&args.unwrap())
+                            .output()
+                            .expect("Error in toileting text");
+                        let response = String::from_utf8(output.stdout).unwrap();
+                        discord.echo(&message.channel_id, &format!("```{}```", &response));
+                    },
+                    Some("!quit") => {
+                        if message.author.name == "rayhem" {
+                            discord.echo(&message.channel_id, "Sayonara.");
+                            break;
+                        } else {
+                            discord.echo(&message.channel_id, "Only root can do that.");
+                        }
+                    },
+                    _ => {
+                        // Detect a horse emoji and respond with a gem
+                        if message.content.contains("🐴") {
+                            let _ = discord.add_reaction(
+                                message.channel_id,
+                                message.id,
+                                ReactionEmoji::Unicode("💎".to_string()),
+                            );
+                        }
                     }
-                } else if message.content == "sudo !quit" {
-                    let _ = discord.send_message(message.channel_id, "Nice try", "", false);
-                }
+                };
             }
             Ok(_) => {}
             Err(discord::Error::Closed(code, body)) => {
