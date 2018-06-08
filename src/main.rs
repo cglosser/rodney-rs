@@ -8,17 +8,20 @@ use std::process::Command;
 
 fn main() {
     // Log in to Discord using a bot token from the environment
-    let discord = Discord::from_bot_token(&env::var("DISCORD_TOKEN").expect("Expected token"))
-        .expect("login failed");
+    let token = env::var("DISCORD_TOKEN").expect("Expected DISCORD_TOKEN env variable");
+    let discord = Discord::from_bot_token(&token).expect("Discord login failed");
 
     // Establish and use a websocket connection
-    let (mut connection, _) = discord.connect().expect("connect failed");
-    println!("Ready.");
+    let (mut connection, event) = discord.connect().expect("connect failed");
+    let bot = event.user;
+    println!("{} is ready to go.", bot.username);
+
+    // Main event loop -- continuously listen for messages
     loop {
         match connection.recv_event() {
             Ok(Event::MessageCreate(message)) => {
-                // Stop the bot from replying to itself
-                if message.author.name == "Rodney" {
+                // Stop the bot from interacting with its own messages
+                if message.author.id == bot.id {
                     continue;
                 }
 
