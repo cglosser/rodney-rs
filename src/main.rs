@@ -6,6 +6,14 @@ use discord::Discord;
 use std::env;
 use std::process::Command;
 
+fn process_command<'a, 'b>(cmd: &'a str, msg: &'b str) -> Option<&'b str> {
+    return if msg.starts_with(cmd) {
+        Some(&msg[cmd.len()..])
+    } else {
+        None
+    }
+}
+
 fn main() {
     // Log in to Discord using a bot token from the environment
     let token = env::var("DISCORD_TOKEN").expect("Expected DISCORD_TOKEN env variable");
@@ -41,16 +49,22 @@ fn main() {
                         message.id,
                         ReactionEmoji::Unicode("💎".to_string()),
                     );
-                } else if &message.content[..7] == "!toilet" {
+                } else if message.content.starts_with("!toilet ") {
+                    let (_, msg) = message.content.split_at(8);
                     let output = Command::new("toilet")
                         .arg("--irc")
-                        .arg(&message.content[7..])
+                        .arg(&msg)
                         .output()
                         .expect("Error in toileting text");
                     let response = String::from_utf8(output.stdout).unwrap();
 
                     println!("{}", response);
-                    let _ = discord.send_message(message.channel_id, &format!("```{}```",&response), "", false);
+                    let _ = discord.send_message(
+                        message.channel_id,
+                        &format!("```{}```", &response),
+                        "",
+                        false,
+                    );
                 } else if message.content == "!quit" {
                     if message.author.name == "rayhem" {
                         let _ = discord.send_message(message.channel_id, "Sayonara.", "", false);
