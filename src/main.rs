@@ -25,6 +25,9 @@ fn main() {
                     continue;
                 }
 
+                let mentioned = message.mentions.iter().any(|x| x.id == bot.id);
+                println!("{}", mentioned);
+
                 if message.content == "!test" {
                     let _ = discord.send_message(
                         message.channel_id,
