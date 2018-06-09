@@ -1,7 +1,7 @@
 extern crate discord;
 
-use discord::model::{Event, ChannelId};
 use discord::model::ReactionEmoji;
+use discord::model::{ChannelId, Event};
 use discord::Discord;
 use std::env;
 use std::process::Command;
@@ -38,37 +38,39 @@ fn main() {
     loop {
         match connection.recv_event() {
             Ok(Event::MessageCreate(message)) => {
-                // Stop the bot from interacting with its own messages
                 if message.author.id == bot.id {
+                    // Stop the bot from interacting with its own messages
                     continue;
                 }
 
                 let _mentioned = message.mentions.iter().any(|x| x.id == bot.id);
+                let chan_id = &message.channel_id;
                 let (command, args) = split_command(&message.content);
 
                 match command {
-                    Some("!test") => discord.echo(&message.channel_id, "This is a reply to the test."),
+                    Some("!test") => discord.echo(chan_id, "This is a reply to the test."),
                     Some("!toilet") => {
                         let output = Command::new("toilet")
                             .arg(&args.unwrap())
                             .output()
                             .expect("Error in toileting text");
                         let response = String::from_utf8(output.stdout).unwrap();
-                        discord.echo(&message.channel_id, &format!("```{}```", &response));
-                    },
+                        discord.echo(&chan_id, &format!("```{}```", &response));
+                    }
                     Some("!quit") => {
                         if message.author.name == "rayhem" {
-                            discord.echo(&message.channel_id, "Sayonara.");
+                            discord.echo(&chan_id, "Sayonara.");
                             break;
                         } else {
-                            discord.echo(&message.channel_id, "Only root can do that.");
+                            discord.echo(&chan_id, "Only root can do that.");
                         }
-                    },
+                    }
+                    Some("!sudo") => discord.echo(&chan_id, "Nice try."),
                     _ => {
                         // Detect a horse emoji and respond with a gem
                         if message.content.contains("🐴") {
                             let _ = discord.add_reaction(
-                                message.channel_id,
+                                *chan_id,
                                 message.id,
                                 ReactionEmoji::Unicode("💎".to_string()),
                             );
