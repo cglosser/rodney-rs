@@ -5,3 +5,4 @@ authors = ["Connor Glosser <glosser1@gmail.com>"]
 
 [dependencies]
 discord = "0.8.0"
+rusqlite = "0.13.0"
