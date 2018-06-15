@@ -6,6 +6,8 @@ use discord::Discord;
 use std::env;
 use std::process::Command;
 
+mod database;
+
 fn process_command<'a, 'b>(cmd: &'a str, msg: &'b str) -> Option<&'b str> {
     return if msg.starts_with(cmd) {
         Some(&msg[cmd.len()..])
@@ -15,6 +17,10 @@ fn process_command<'a, 'b>(cmd: &'a str, msg: &'b str) -> Option<&'b str> {
 }
 
 fn main() {
+    database::open("test.db");
+
+
+
     // Log in to Discord using a bot token from the environment
     let token = env::var("DISCORD_TOKEN").expect("Expected DISCORD_TOKEN env variable");
     let discord = Discord::from_bot_token(&token).expect("Discord login failed");
