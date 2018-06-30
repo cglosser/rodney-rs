@@ -1,10 +1,13 @@
 extern crate discord;
+extern crate rusqlite;
 
-use discord::model::{Event, ChannelId};
 use discord::model::ReactionEmoji;
+use discord::model::{ChannelId, Event};
 use discord::Discord;
+
+use rusqlite::Connection;
+
 use std::env;
-use std::process::Command;
 
 fn split_command(in_string: &str) -> (Option<&str>, Option<&str>) {
     let mut splitter = in_string.splitn(2, ' ');
@@ -24,7 +27,26 @@ impl Echo for Discord {
     }
 }
 
+fn initialize_database(fname: &str) -> Connection {
+    let connection = Connection::open(fname).expect("Could not connect to database");
+    connection
+        .execute(
+            "CREATE TABLE IF NOT EXISTS facts ( 
+        id INTEGER PRIMARY KEY, 
+        fact TEXT NOT NULL,
+        tidbit TEXT NOT NULL,
+        verb TEXT NOT NULL default 'is',
+        created_by TEXT NOT NULL,
+        created_on TEXT NOT NULL default CURRENT_TIMESTAMP)",
+            &[],
+        )
+        .expect("Could not create table");
+    connection
+}
+
 fn main() {
+    let database = initialize_database("facts.sqlite");
+
     // Log in to Discord using a bot token from the environment
     let token = env::var("DISCORD_TOKEN").expect("Expected DISCORD_TOKEN env variable");
     let discord = Discord::from_bot_token(&token).expect("Discord login failed");
@@ -44,18 +66,12 @@ fn main() {
                 }
 
                 let _mentioned = message.mentions.iter().any(|x| x.id == bot.id);
-                let (command, args) = split_command(&message.content);
+                let (command, _) = split_command(&message.content);
 
                 match command {
-                    Some("!test") => discord.echo(&message.channel_id, "This is a reply to the test."),
-                    Some("!toilet") => {
-                        let output = Command::new("toilet")
-                            .arg(&args.unwrap())
-                            .output()
-                            .expect("Error in toileting text");
-                        let response = String::from_utf8(output.stdout).unwrap();
-                        discord.echo(&message.channel_id, &format!("```{}```", &response));
-                    },
+                    Some("!test") => {
+                        discord.echo(&message.channel_id, "This is a reply to the test.")
+                    }
                     Some("!quit") => {
                         if message.author.name == "rayhem" {
                             discord.echo(&message.channel_id, "Sayonara.");
@@ -63,7 +79,7 @@ fn main() {
                         } else {
                             discord.echo(&message.channel_id, "Only root can do that.");
                         }
-                    },
+                    }
                     _ => {
                         // Detect a horse emoji and respond with a gem
                         if message.content.contains("🐴") {
