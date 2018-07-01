@@ -1,9 +1,12 @@
 extern crate discord;
+extern crate regex;
 extern crate rusqlite;
 
 use discord::model::ReactionEmoji;
 use discord::model::{ChannelId, Event};
 use discord::Discord;
+
+use regex::Regex;
 
 use rusqlite::Connection;
 
@@ -32,12 +35,14 @@ fn initialize_database(fname: &str) -> Connection {
     connection
         .execute(
             "CREATE TABLE IF NOT EXISTS facts ( 
-        id INTEGER PRIMARY KEY, 
-        fact TEXT NOT NULL,
-        tidbit TEXT NOT NULL,
-        verb TEXT NOT NULL default 'is',
-        created_by TEXT NOT NULL,
-        created_on TEXT NOT NULL default CURRENT_TIMESTAMP)",
+                id INTEGER PRIMARY KEY, 
+                fact TEXT NOT NULL,
+                verb TEXT NOT NULL default 'is',
+                tidbit TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                created_on TEXT NOT NULL default CURRENT_TIMESTAMP,
+                UNIQUE(fact, tidbit) ON CONFLICT ROLLBACK
+            )",
             &[],
         )
         .expect("Could not create table");
@@ -56,6 +61,11 @@ fn main() {
     let bot = event.user;
     println!("{} is ready to go.", bot.username);
 
+    // Define the pattern for detecting facts in "!learn" commands
+    let fact_pattern = Regex::new(
+        r"(?P<fact>[[:print:]]+)\s+<(?P<verb>[[:alpha:]]+)>\s+(?P<tidbit>[[:print:]]+)$",
+    ).expect("Could not compile regex");
+
     // Main event loop -- continuously listen for messages
     loop {
         match connection.recv_event() {
@@ -66,7 +76,7 @@ fn main() {
                 }
 
                 let _mentioned = message.mentions.iter().any(|x| x.id == bot.id);
-                let (command, _) = split_command(&message.content);
+                let (command, args) = split_command(&message.content);
 
                 match command {
                     Some("!test") => {
@@ -80,17 +90,55 @@ fn main() {
                             discord.echo(&message.channel_id, "Only root can do that.");
                         }
                     }
-                    _ => {
-                        // Detect a horse emoji and respond with a gem
-                        if message.content.contains("🐴") {
-                            let _ = discord.add_reaction(
-                                message.channel_id,
-                                message.id,
-                                ReactionEmoji::Unicode("💎".to_string()),
-                            );
+                    Some("!learn") => {
+                        if let Some(s) = args {
+                            if let Some(captures) = fact_pattern.captures(s) {
+                                let statement = format!(
+                                    "INSERT INTO facts (fact, verb, tidbit, created_by) VALUES ('{fact}', '{verb}', '{tidbit}', '{uname}')",
+                                    fact = &captures["fact"],
+                                    tidbit = &captures["tidbit"],
+                                    verb = &captures["verb"],
+                                    uname = message.author.name
+                                );
+                                println!("Executing {}", statement);
+                                database
+                                    .execute(&statement, &[])
+                                    .expect("Could not execute statement");
+                                discord.echo(
+                                    &message.channel_id,
+                                    &format!(
+                                        r#"Ok, {uname}, I learned "{fact} {verb} {tidbit}""#,
+                                        fact = &captures["fact"],
+                                        tidbit = &captures["tidbit"],
+                                        verb = &captures["verb"],
+                                        uname = message.author.name
+                                    ),
+                                );
+                            }
                         }
                     }
+                    _ => {}
                 };
+
+                // Detect a horse emoji and respond with a gem
+                if message.content.contains("🐴") {
+                    discord
+                        .add_reaction(
+                            message.channel_id,
+                            message.id,
+                            ReactionEmoji::Unicode("💎".to_string()),
+                        )
+                        .unwrap();
+                }
+
+                struct Clause(String, String, String);
+
+                // Query the saved facts table for a random response
+                let s = format!("SELECT fact, verb, tidbit from facts where fact='{fact}' ORDER BY RANDOM() LIMIT 1;", fact=message.content);
+                let mut stmt = database.prepare(&s).unwrap();
+                let mut rows = stmt.query_and_then(&[], |row| row.get(0)).ok();
+
+
             }
             Ok(_) => {}
             Err(discord::Error::Closed(code, body)) => {
