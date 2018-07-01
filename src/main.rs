@@ -136,9 +136,6 @@ fn main() {
                 // Query the saved facts table for a random response
                 let s = format!("SELECT fact, verb, tidbit from facts where fact='{fact}' ORDER BY RANDOM() LIMIT 1;", fact=message.content);
                 let mut stmt = database.prepare(&s).unwrap();
-                let mut rows = stmt.query_and_then(&[], |row| row.get(0)).ok();
-
-
             }
             Ok(_) => {}
             Err(discord::Error::Closed(code, body)) => {
