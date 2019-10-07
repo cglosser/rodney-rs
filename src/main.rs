@@ -6,6 +6,7 @@ mod zelevinascii;
 use discord::model::ReactionEmoji;
 use discord::model::{ChannelId, Event};
 use discord::Discord;
+use std::process::Command;
 
 use std::env;
 
