@@ -1,14 +1,11 @@
 extern crate discord;
 extern crate regex;
-extern crate rusqlite;
+
+mod zelevinascii;
 
 use discord::model::ReactionEmoji;
 use discord::model::{ChannelId, Event};
 use discord::Discord;
-
-use regex::Regex;
-
-use rusqlite::Connection;
 
 use std::env;
 
@@ -30,28 +27,7 @@ impl Echo for Discord {
     }
 }
 
-fn initialize_database(fname: &str) -> Connection {
-    let connection = Connection::open(fname).expect("Could not connect to database");
-    connection
-        .execute(
-            "CREATE TABLE IF NOT EXISTS facts ( 
-                id INTEGER PRIMARY KEY, 
-                fact TEXT NOT NULL,
-                verb TEXT NOT NULL default 'is',
-                tidbit TEXT NOT NULL,
-                created_by TEXT NOT NULL,
-                created_on TEXT NOT NULL default CURRENT_TIMESTAMP,
-                UNIQUE(fact, tidbit) ON CONFLICT ROLLBACK
-            )",
-            &[],
-        )
-        .expect("Could not create table");
-    connection
-}
-
 fn main() {
-    let database = initialize_database("facts.sqlite");
-
     // Log in to Discord using a bot token from the environment
     let token = env::var("DISCORD_TOKEN").expect("Expected DISCORD_TOKEN env variable");
     let discord = Discord::from_bot_token(&token).expect("Discord login failed");
@@ -60,11 +36,6 @@ fn main() {
     let (mut connection, event) = discord.connect().expect("connect failed");
     let bot = event.user;
     println!("{} is ready to go.", bot.username);
-
-    // Define the pattern for detecting facts in "!learn" commands
-    let fact_pattern = Regex::new(
-        r"(?P<fact>[[:print:]]+)\s+<(?P<verb>[[:alpha:]]+)>\s+(?P<tidbit>[[:print:]]+)$",
-    ).expect("Could not compile regex");
 
     // Main event loop -- continuously listen for messages
     loop {
@@ -90,33 +61,6 @@ fn main() {
                             discord.echo(&message.channel_id, "Only root can do that.");
                         }
                     }
-                    Some("!learn") => {
-                        if let Some(s) = args {
-                            if let Some(captures) = fact_pattern.captures(s) {
-                                let statement = format!(
-                                    "INSERT INTO facts (fact, verb, tidbit, created_by) VALUES ('{fact}', '{verb}', '{tidbit}', '{uname}')",
-                                    fact = &captures["fact"],
-                                    tidbit = &captures["tidbit"],
-                                    verb = &captures["verb"],
-                                    uname = message.author.name
-                                );
-                                println!("Executing {}", statement);
-                                database
-                                    .execute(&statement, &[])
-                                    .expect("Could not execute statement");
-                                discord.echo(
-                                    &message.channel_id,
-                                    &format!(
-                                        r#"Ok, {uname}, I learned "{fact} {verb} {tidbit}""#,
-                                        fact = &captures["fact"],
-                                        tidbit = &captures["tidbit"],
-                                        verb = &captures["verb"],
-                                        uname = message.author.name
-                                    ),
-                                );
-                            }
-                        }
-                    }
                     _ => {}
                 };
 
@@ -131,11 +75,19 @@ fn main() {
                         .unwrap();
                 }
 
-                struct Clause(String, String, String);
+                if message.content.contains("Zelevinsky") {
+                    discord.echo(&message.channel_id, zelevinascii::ZELEVINASCII_SMALL);
+                }
 
-                // Query the saved facts table for a random response
-                let s = format!("SELECT fact, verb, tidbit from facts where fact='{fact}' ORDER BY RANDOM() LIMIT 1;", fact=message.content);
-                let mut stmt = database.prepare(&s).unwrap();
+                if message.content.contains("physics") {
+                    discord
+                        .add_reaction(
+                            message.channel_id,
+                            message.id,
+                            ReactionEmoji::Unicode(":disappointment:".to_string()),
+                        )
+                        .unwrap();
+                }
             }
             Ok(_) => {}
             Err(discord::Error::Closed(code, body)) => {
