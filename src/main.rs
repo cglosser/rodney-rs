@@ -1,10 +1,13 @@
 extern crate discord;
+extern crate regex;
+
+mod zelevinascii;
 
 use discord::model::ReactionEmoji;
 use discord::model::{ChannelId, Event};
 use discord::Discord;
+
 use std::env;
-use std::process::Command;
 
 fn split_command(in_string: &str) -> (Option<&str>, Option<&str>) {
     let mut splitter = in_string.splitn(2, ' ');
@@ -75,7 +78,22 @@ fn main() {
                                 ReactionEmoji::Unicode("💎".to_string()),
                             );
                         }
+
+                        if message.content.contains("Zelevinsky") {
+                            discord.echo(&message.channel_id, zelevinascii::ZELEVINASCII_SMALL);
+                        }
+
+                        if message.content.contains("physics") {
+                            discord
+                                .add_reaction(
+                                    message.channel_id,
+                                    message.id,
+                                    ReactionEmoji::Unicode(":disappointment:".to_string()),
+                                )
+                                .unwrap();
+                        }
                     }
+                    _ => {}
                 };
             }
             Ok(_) => {}
